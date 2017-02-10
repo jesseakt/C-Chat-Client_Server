@@ -1,5 +1,7 @@
 #CS 372 Project 1
+#Python Chat Server intended for use with C Chat Client
 #Jesse Thoren
+#Referenced Lecture 15 for socket programming assistance
 
 from socket import *
 import sys
@@ -12,8 +14,6 @@ def signal_handler_noConn(signal, frame):
 
 def signal_handler_Conn(signal, franme):
     print("\nSignal received, closing connection and shutting down server.")
-    servResponse = serverHandle + "has terminated the server." 
-    connectionSocket.send(servResponse)
     connectionSocket.close()
     sys.exit(1)
 
@@ -43,7 +43,7 @@ def setUpPorts(arguments):
     return servPortNo
 
 #Chat implementation
-def chat(handle, socket, msg_length):
+def chat(socket, msg_length):
     #Handle SIGINT if it occurs while in chat
     signal.signal(signal.SIGINT,signal_handler_Conn)
     #Stay in chat until '\quit' is typed by server or client
@@ -52,27 +52,32 @@ def chat(handle, socket, msg_length):
     print("Send a SIGINT to shut down the chat server.")
     while 1:
         sentence = socket.recv(msg_length)
-        print(sentence)
-
-        response = input(handle, ">")
-        if(response == "\quit"):
-            servResponse = handle + " has left the chat."
-            socket.send(servResponse)
+        if len(sentence) <= 0:
+            print("Client disconnected.\n")
             socket.close()
             break
-        servResponse = handle + ">" + response
-        socket.send(servResponse)
+
+        print(sentence.decode('UTF-8'))
+        
+        response = ""
+        while 1:
+            response = input("localhost> ")
+            if len(response)>=500:
+                print("Response must be less than 500 bytes")
+                continue
+            else:
+                break
+
+        if(response == "\quit"):
+            socket.close()
+            break
+        socket.send(bytes(response, 'UTF-8'))
     return
 
 #Main Method
 #Set port number
 servPortNo = setUpPorts(sys.argv)
 print("Port set as", servPortNo)
-
-#Get server's handle from user.
-serverHandle = input("Enter the chat server's handle: ")
-serverHandle = serverHandle[:10]
-print("Handle set to: ", serverHandle)
 
 #Create connection (Referenced lecture 15):
 serverSocket = socket(AF_INET, SOCK_STREAM)
@@ -81,6 +86,10 @@ serverSocket.listen(1)
 
 #Set maximum message length as required by project description:
 MAX_LENGTH = 500
+#Length of handle plus '>'
+MAX_HANDLE = 11
+#Calculate max amount to receive
+MAX_MESSAGE = MAX_LENGTH + MAX_HANDLE
 
 #Exchange information with client
 while 1:
@@ -92,4 +101,4 @@ while 1:
     #Wait for connection until SIGINT is received
     connectionSocket, addr = serverSocket.accept()
     #Initiate chat with connection
-    chat(serverHandle, connectionSocket, MAX_LENGTH)
+    chat(connectionSocket, MAX_MESSAGE)
